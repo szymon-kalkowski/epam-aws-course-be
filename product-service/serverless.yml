@@ -38,21 +38,34 @@ provider:
           Resource:
             - "arn:aws:dynamodb:us-east-1:975050146366:table/products"
             - "arn:aws:dynamodb:us-east-1:975050146366:table/stocks"
+        - Effect: "Allow"
+          Action:
+            - "sqs:*"
+          Resource:
+            - Fn::GetAtt:
+                - catalogItemsQueue
+                - Arn
+        - Effect: "Allow"
+          Action:
+            - "sns:*"
+          Resource:
+            Ref: createProductTopic
 
-#          Resource: { "Fn::Join" : ["", ["arn:aws:s3:::", { "Ref" : "ServerlessDeploymentBucket" } ] ]  }
-#        - Effect: "Allow"
-#          Action:
-#            - "s3:PutObject"
-#          Resource:
-#            Fn::Join:
-#              - ""
-#              - - "arn:aws:s3:::"
-#                - "Ref" : "ServerlessDeploymentBucket"
-#                - "/*"
+  #          Resource: { "Fn::Join" : ["", ["arn:aws:s3:::", { "Ref" : "ServerlessDeploymentBucket" } ] ]  }
+  #        - Effect: "Allow"
+  #          Action:
+  #            - "s3:PutObject"
+  #          Resource:
+  #            Fn::Join:
+  #              - ""
+  #              - - "arn:aws:s3:::"
+  #                - "Ref" : "ServerlessDeploymentBucket"
+  #                - "/*"
 
-# you can define service wide environment variables here
-#  environment:
-#    variable1: value1
+  # you can define service wide environment variables here
+  environment:
+    SNS_TOPIC_ARN:
+      Ref: createProductTopic
 
 # you can add packaging information here
 #package:
@@ -81,6 +94,15 @@ functions:
       - httpApi:
           path: /products
           method: post
+  catalogBatchProcess:
+    handler: handler.catalogBatchProcess
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - catalogItemsQueue
+              - Arn
+          batchSize: 5
 #    The following are a few example events you can configure
 #    NOTE: Please make sure to change your handler code to work with those events
 #    Check the event documentation for details
@@ -121,6 +143,23 @@ functions:
 #    environment:
 #      variable2: value2
 
+resources:
+  Resources:
+    catalogItemsQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: catalogItemsQueue
+    createProductTopic:
+      Type: "AWS::SNS::Topic"
+      Properties:
+        TopicName: createProductTopic
+    TopicSubscription:
+      Type: "AWS::SNS::Subscription"
+      Properties:
+        Endpoint: szymon.kalkowski@wp.pl
+        Protocol: email
+        TopicArn:
+          Ref: createProductTopic
 # you can add CloudFormation resource templates here
 #resources:
 #  Resources:

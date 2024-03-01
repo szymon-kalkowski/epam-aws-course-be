@@ -41,7 +41,12 @@ provider:
             - "s3:*"
           Resource:
             - "arn:aws:s3:::aws-course-bucket-task-5/*"
-
+        - Effect: "Allow"
+          Action:
+            - "sqs:SendMessage"
+            - "sqs:*"
+          Resource:
+            - "arn:aws:sqs:us-east-1:975050146366:catalogItemsQueue"
 # you can define service wide environment variables here
 #  environment:
 #    variable1: value1

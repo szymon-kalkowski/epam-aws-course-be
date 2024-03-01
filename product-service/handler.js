@@ -1,6 +1,7 @@
 "use strict";
 
 const AWS = require("aws-sdk");
+const sns = new AWS.SNS();
 const { v4: uuidv4 } = require("uuid");
 
 const dynamoDb = new AWS.DynamoDB.DocumentClient();
@@ -83,4 +84,32 @@ module.exports.createProduct = async (event) => {
       stock,
     }),
   };
+};
+
+module.exports.catalogBatchProcess = async (event) => {
+  try {
+    for (const record of event.Records) {
+      const { title, description, price, count } = JSON.parse(record.body);
+      const product = {
+        id: uuidv4(),
+        title,
+        description,
+        price,
+      };
+      const stock = {
+        product_id: product.id,
+        count: +count || 0,
+      };
+      await dynamoDb.put({ TableName: "products", Item: product }).promise();
+      await dynamoDb.put({ TableName: "stocks", Item: stock }).promise();
+
+      const params = {
+        Message: `Created product ${product.title} with id ${product.id}`,
+        TopicArn: `${process.env.SNS_TOPIC_ARN}`,
+      };
+      await sns.publish(params).promise();
+    }
+  } catch (error) {
+    console.log(error);
+  }
 };
