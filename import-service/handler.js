@@ -3,6 +3,22 @@
 const AWS = require("aws-sdk");
 const csv = require("csv-parser");
 const s3 = new AWS.S3({ region: "us-east-1" });
+const sqs = new AWS.SQS();
+
+async function sendMessageToSQS(data) {
+  const params = {
+    MessageBody: JSON.stringify(data).replace("\\ufeff", ""),
+    QueueUrl:
+      "https://sqs.us-east-1.amazonaws.com/975050146366/catalogItemsQueue",
+  };
+
+  try {
+    await sqs.sendMessage(params).promise();
+    console.log(`Message sent: ${params.MessageBody}`);
+  } catch (error) {
+    console.error("Error sending message:", error);
+  }
+}
 
 module.exports.importProductsFile = async (event) => {
   const fileName = event.queryStringParameters.name;
@@ -26,35 +42,34 @@ module.exports.importProductsFile = async (event) => {
 };
 
 module.exports.importFileParser = async (event) => {
-  console.log("File Parser");
-  console.log("Event", event);
-  console.log("Records", event.Records);
+  const promises = event.Records.map(
+    (record) =>
+      new Promise((resolve, reject) => {
+        try {
+          const s3Stream = s3
+            .getObject({
+              Bucket: record.s3.bucket.name,
+              Key: record.s3.object.key,
+            })
+            .createReadStream();
 
-  for (const record of event.Records) {
-    console.log("Record", record);
-    const s3Stream = s3
-      .getObject({
-        Bucket: "aws-course-bucket-task-5",
-        Key: record.s3.object.key,
+          console.log(`Starting to process file ${record.s3.object.key}...`);
+
+          s3Stream
+            .pipe(csv())
+            .on("data", (data) => {
+              console.log("in csv data: ", data);
+              resolve(sendMessageToSQS(data));
+            })
+            .on("end", () => {
+              console.log(`File ${record.s3.object.key} has been processed.`);
+            });
+        } catch (error) {
+          console.error("Error processing file:", error);
+          reject(error);
+        }
       })
-      .createReadStream();
+  );
 
-    console.log("S3 Stream created");
-
-    await new Promise((resolve, reject) => {
-      s3Stream
-        .pipe(csv())
-        .on("data", (data) => {
-          console.log(data);
-        })
-        .on("error", (err) => {
-          console.log("Error:", err);
-          reject(err);
-        })
-        .on("end", () => {
-          console.log("File has been processed");
-          resolve();
-        });
-    });
-  }
+  await Promise.all(promises);
 };
