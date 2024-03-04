@@ -11,13 +11,17 @@
 #
 # Happy Coding!
 
-service: import-service
+service: authorization-service
 # app and org for use with dashboard.serverless.com
 #app: your-app-name
 #org: your-org-name
 
 # You can pin your service to only deploy with a specific Serverless version
 # Check out our docs for more details
+
+plugins:
+  - serverless-dotenv-plugin
+
 frameworkVersion: "3"
 
 provider:
@@ -28,34 +32,26 @@ provider:
   stage: dev
   region: us-east-1
 
-  httpApi:
-    authorizers:
-      basicAuthorizer:
-        type: request
-        functionArn: arn:aws:lambda:us-east-1:975050146366:function:authorization-service-dev-basicAuthorizer
-        resultTtlInSeconds: 0
+  # you can add statements to the Lambda function's IAM Role here
+  #  iam:
+  #    role:
+  #      statements:
+  #        - Effect: "Allow"
+  #          Action:
+  #            - "s3:ListBucket"
+  #          Resource: { "Fn::Join" : ["", ["arn:aws:s3:::", { "Ref" : "ServerlessDeploymentBucket" } ] ]  }
+  #        - Effect: "Allow"
+  #          Action:
+  #            - "s3:PutObject"
+  #          Resource:
+  #            Fn::Join:
+  #              - ""
+  #              - - "arn:aws:s3:::"
+  #                - "Ref" : "ServerlessDeploymentBucket"
+  #                - "/*"
 
-  iam:
-    role:
-      statements:
-        - Effect: "Allow"
-          Action:
-            - "s3:ListBucket"
-          Resource:
-            - "arn:aws:s3:::aws-course-bucket-task-5"
-        - Effect: "Allow"
-          Action:
-            - "s3:*"
-          Resource:
-            - "arn:aws:s3:::aws-course-bucket-task-5/*"
-        - Effect: "Allow"
-          Action:
-            - "sqs:SendMessage"
-            - "sqs:*"
-          Resource:
-            - "arn:aws:sqs:us-east-1:975050146366:catalogItemsQueue"
-# you can define service wide environment variables here
-#  environment:
+  # you can define service wide environment variables here
+  environment:
 #    variable1: value1
 
 # you can add packaging information here
@@ -67,27 +63,8 @@ provider:
 #    - include-me-dir/**
 
 functions:
-  importProductsFile:
-    handler: handler.importProductsFile
-    events:
-      - httpApi:
-          path: /import
-          method: get
-          authorizer:
-            name: basicAuthorizer
-          # request:
-          #   parameters:
-          #     querystrings:
-          #       name: true
-  importFileParser:
-    handler: handler.importFileParser
-    events:
-      - s3:
-          bucket: aws-course-bucket-task-5
-          event: s3:ObjectCreated:*
-          rules:
-            - prefix: uploaded/
-          existing: true
+  basicAuthorizer:
+    handler: handler.basicAuthorizer
 #    The following are a few example events you can configure
 #    NOTE: Please make sure to change your handler code to work with those events
 #    Check the event documentation for details
